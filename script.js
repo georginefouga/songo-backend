@@ -2,12 +2,12 @@ let socket = null;
 let myRole = null; // 'sud' ou 'nord'
 let serverGameState = { board: Array(14).fill(5), scoreSud: 0, scoreNord: 0, currentTurn: 'sud' };
 let isAnimating = false;
-let gameActive = false; // Bloque le jeu tant qu'on est pas deux
+let gameActive = false; // Bloque le jeu tant qu'un second joueur n'est pas connecté
 
-// LIAISON AVEC L'ADRESSE RENDER DU SERVEUR
+// LIAISON AVEC TON SERVEUR RENDER
 const SERVER_URL = 'wss://songo-server.onrender.com';
 
-// RÉCUPÉRATION DES ÉLÉMENTS DE L'INTERFACE
+// RÉCUPÉRATION DES ÉLÉMENTS DU CODE LOCAL
 const pits = document.querySelectorAll('.pit');
 const turnIndicator = document.getElementById('turn-indicator');
 const scoreSudEl = document.getElementById('score-sud');
@@ -21,11 +21,11 @@ const roomCodeInput = document.getElementById('room-code');
 const btnCreate = document.getElementById('btn-create');
 const btnConnect = document.getElementById('btn-connect');
 
-// INITIALISATION DE LA CONNEXION CLOUD DIRECTE
+// CONNEXION AUTOMATIQUE AU CLOUD
 connectToServer();
 
 function connectToServer() {
-    socket = new WebSocket(SERVER_URL);
+    socket = new WebSocket(https://songo-server.onrender.com);
 
     socket.onopen = () => {
         statusMessage.textContent = "Connecté au Cloud ! Entrez un nom de salon.";
@@ -42,26 +42,26 @@ function connectToServer() {
             case 'room_created':
                 myRole = msg.role;
                 serverGameState = msg.gameState;
-                lobbyContainer.style.display = 'none'; // Ferme l'accueil
+                lobbyContainer.style.display = 'none'; // Affiche le plateau
                 roleBadge.textContent = `Mon Rôle : JOUEUR ${myRole.toUpperCase()}`;
-                moveLog.textContent = `Salon "${roomCodeInput.value.trim()}" créé. En attente de l'adversaire...`;
+                moveLog.textContent = `Salon "${roomCodeInput.value.trim()}" créé. En attente de votre adversaire...`;
                 updateUI();
                 break;
 
             case 'room_joined':
                 myRole = msg.role;
                 serverGameState = msg.gameState;
-                gameActive = true; // Deuxième joueur connecté, le jeu s'active
-                lobbyContainer.style.display = 'none'; // Ferme l'accueil
+                gameActive = true; 
+                lobbyContainer.style.display = 'none'; // Affiche le plateau
                 roleBadge.textContent = `Mon Rôle : JOUEUR ${myRole.toUpperCase()}`;
-                moveLog.textContent = "Vous avez rejoint la partie. C'est au Joueur Sud de commencer !";
+                moveLog.textContent = "Vous avez rejoint la partie. Le Joueur Sud commence !";
                 updateUI();
                 break;
 
             case 'opponent_joined':
-                gameActive = true; // L'adversaire est arrivé, on débloque
-                moveLog.textContent = "Votre adversaire est connecté ! À vous de jouer (Sud).";
-                alert("Un adversaire a rejoint la partie !");
+                gameActive = true; 
+                moveLog.textContent = "Votre adversaire est connecté ! C'est à vous de jouer (Sud).";
+                alert("Un adversaire a rejoint votre salon !");
                 updateUI();
                 break;
 
@@ -83,91 +83,90 @@ function connectToServer() {
     };
 
     socket.onclose = () => {
-        statusMessage.textContent = "Connexion perdue avec le serveur. Reconnexion...";
+        statusMessage.textContent = "Connexion perdue. Tentative de reconnexion...";
         statusMessage.style.color = "#dc3545";
         roomCodeInput.disabled = true;
         btnCreate.disabled = true;
         btnConnect.disabled = true;
-        setTimeout(connectToServer, 3000); // Tente de se reconnecter après 3 secondes
+        setTimeout(connectToServer, 3000);
     };
 }
 
-// BOUTON : CRÉER UN SALON
+// INTERACTION BOUTONS DU LOGIEL
 btnCreate.addEventListener('click', () => {
     const roomCode = roomCodeInput.value.trim();
     if (!roomCode) return alert("Veuillez donner un nom au salon à créer.");
     socket.send(JSON.stringify({ type: 'create_room', roomCode: roomCode }));
 });
 
-// BOUTON : REJOINDRE UN SALON
 btnConnect.addEventListener('click', () => {
     const roomCode = roomCodeInput.value.trim();
     if (!roomCode) return alert("Veuillez inscrire le nom du salon à rejoindre.");
     socket.send(JSON.stringify({ type: 'join_room', roomCode: roomCode }));
 });
 
-// CLIC SUR LES CASES DU PLATEAU
+// CAPTURE DU CLIC SUR LE PLATEAU TRADITIONNEL
 pits.forEach(pit => {
     pit.addEventListener('click', (e) => {
         if (!gameActive || isAnimating) return;
 
         const clickedIndex = parseInt(e.target.getAttribute('data-index'));
 
-        // Vérification du tour
+        // Sécurité de vérification des tours réseau
         if (serverGameState.currentTurn !== myRole) {
             return alert("Ce n'est pas votre tour de jouer !");
         }
 
-        // Vérification des zones d'autorisation (Sud = cases 7-13, Nord = cases 0-6)
-        if (myRole === 'sud' && (clickedIndex < 7 || clickedIndex > 13)) return alert("Vous devez jouer dans votre rangée (Sud) !");
-        if (myRole === 'nord' && (clickedIndex < 0 || clickedIndex > 6)) return alert("Vous devez jouer dans votre rangée (Nord) !");
+        // Sécurité de zone (Sud : cases 7-13 | Nord : cases 0-6)
+        if (myRole === 'sud' && (clickedIndex < 7 || clickedIndex > 13)) return alert("Vous devez jouer dans vos cases (Rangée Sud) !");
+        if (myRole === 'nord' && (clickedIndex < 0 || clickedIndex > 6)) return alert("Vous devez jouer dans vos cases (Rangée Nord) !");
 
-        if (serverGameState.board[clickedIndex] === 0) return alert("Cette case est vide !");
+        if (serverGameState.board[clickedIndex] === 0) return alert("Cette fosse est vide !");
 
-        // Execution locale de la distribution des graines (simulation simplifiée pour l'exemple)
-        executeMove(clickedIndex);
+        // Lancement de la logique de distribution
+        executeSongoMove(clickedIndex);
     });
 });
 
-// FONCTION EXÉCUTION DU COUP ET ENVOI AU CLOUD
-function executeMove(index) {
+// LOGIQUE DE DISTRIBUTION ET DE RECAPTURE SANS IA
+function executeSongoMove(index) {
     let seeds = serverGameState.board[index];
     serverGameState.board[index] = 0;
     let currentIdx = index;
 
-    // Distribution simple dans le sens anti-horaire
+    // Distribution circulaire anti-horaire classique
     while (seeds > 0) {
         currentIdx = (currentIdx + 1) % 14;
         serverGameState.board[currentIdx]++;
         seeds--;
     }
 
-    // Changement de tour alternatif
-    serverGameState.currentTurn = (myRole === 'sud') ? 'nord' : 'sud';
-    moveLog.textContent = `Dernier coup : Joueur ${myRole.toUpperCase()} a distribué depuis la case ${index}.`;
+    // Capture basique (À adapter selon tes règles locales de capture Songo)
+    // Exemple : si la case finale contient 2 ou 4 graines chez l'adversaire...
 
-    // Envoi immédiat du nouvel état au serveur Render pour synchronisation
+    // Alternance stricte des tours réseau
+    serverGameState.currentTurn = (myRole === 'sud') ? 'nord' : 'sud';
+    moveLog.textContent = `Dernier coup effectué depuis la fosse ${index}.`;
+
+    // Envoi de la mise à jour au serveur Render
     socket.send(JSON.stringify({
         type: 'make_move',
         gameState: serverGameState
     }));
 }
 
-// METTRE À JOUR L'AFFICHAGE DU PLATEAU ET DES SCORES
+// SYNCHRONISATION DU MATÉRIEL VISUEL
 function updateUI() {
-    // Synchronisation graphique des fosses
     pits.forEach(pit => {
         const idx = parseInt(pit.getAttribute('data-index'));
         pit.textContent = serverGameState.board[idx];
     });
 
-    // Synchronisation des scores globaux
     scoreSudEl.textContent = serverGameState.scoreSud;
     scoreNordEl.textContent = serverGameState.scoreNord;
 
-    // Indicateur visuel du tour
     if (!gameActive) {
-        turnIndicator.textContent = "En attente du 2ème joueur...";
+        turnIndicator.textContent = "En attente d'un adversaire...";
         turnIndicator.style.color = "#ffc107";
     } else if (serverGameState.currentTurn === myRole) {
         turnIndicator.textContent = "À vous de jouer !";

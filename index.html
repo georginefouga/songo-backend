@@ -2,13 +2,13 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Songo Master - Réseau</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <!-- ÉCRAN D'ACCUEIL : SÉLECTION DES SALONS -->
+    <!-- ÉCRAN D'ACCUEIL : SÉLECTION DES SALONS EN RÉSEAU -->
     <div id="lobby-container">
         <div class="lobby-box">
             <h2>Songo Réseau 237</h2>
@@ -25,7 +25,7 @@
         </div>
     </div>
 
-    <!-- ZONE DE JEU (MASQUÉE DE BASE PAR LE CSS JUSQU'À LA CONNEXION) -->
+    <!-- ZONE DE JEU PRINCIPALE (IDENTIQUE À TA VERSION LOCALE) -->
     <div id="game-container">
         <header>
             <h1>SONGO NETWORK</h1>
@@ -34,13 +34,13 @@
         </header>
 
         <main class="board-wrapper">
-            <!-- Les scores -->
+            <!-- Les scores des deux vrais joueurs -->
             <div class="score-board">
                 <div class="score">Nord (Adversaire) : <span id="score-nord">0</span></div>
                 <div class="score">Sud (Moi) : <span id="score-sud">0</span></div>
             </div>
 
-            <!-- Le plateau de Songo (14 fosses) -->
+            <!-- Le plateau traditionnel (14 fosses) -->
             <div class="songo-board">
                 <!-- Rangée Nord (Joueur Nord : cases 0 à 6) -->
                 <div class="row row-nord">
