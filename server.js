@@ -14,7 +14,7 @@ wss.on('connection', (ws) => {
         try {
             const data = JSON.parse(message);
 
-            // CRÉER SALON
+            // ACTION : CRÉER UN SALON
             if (data.type === 'create_room') {
                 const roomCode = data.roomCode;
                 if (rooms[roomCode]) {
@@ -26,7 +26,7 @@ wss.on('connection', (ws) => {
                             board: Array(14).fill(5),
                             scoreSud: 0,
                             scoreNord: 0,
-                            currentTurn: 'sud' // Sud commence toujours
+                            currentTurn: 'sud'
                         }
                     };
                     ws.roomCode = roomCode;
@@ -35,7 +35,7 @@ wss.on('connection', (ws) => {
                 }
             }
 
-            // REJOINDRE SALON
+            // ACTION : REJOINDRE UN SALON
             if (data.type === 'join_room') {
                 const roomCode = data.roomCode;
                 const room = rooms[roomCode];
@@ -43,7 +43,7 @@ wss.on('connection', (ws) => {
                 if (!room) {
                     ws.send(JSON.stringify({ type: 'error', message: 'Salon introuvable.' }));
                 } else if (room.players.length >= 2) {
-                    ws.send(JSON.stringify({ type: 'error', message: 'Salon complet.' }));
+                    ws.send(JSON.stringify({ type: 'error', message: 'Ce salon est complet.' }));
                 } else {
                     room.players.push(ws);
                     ws.roomCode = roomCode;
@@ -54,25 +54,23 @@ wss.on('connection', (ws) => {
                 }
             }
 
-            // ACTIONS DE JEU ET SUIVI DE MOUVEMENT
+            // ACTION : MISE À JOUR ET SUIVI DES MOUVEMENTS
             if (data.type === 'make_move') {
                 const roomCode = ws.roomCode;
                 const room = rooms[roomCode];
 
                 if (room) {
-                    // Le serveur enregistre le nouvel état de la table et change le tour
                     room.gameState.board = data.gameState.board;
                     room.gameState.scoreSud = data.gameState.scoreSud;
                     room.gameState.scoreNord = data.gameState.scoreNord;
-                    room.gameState.currentTurn = data.gameState.currentTurn; // Alterné par le client
+                    room.gameState.currentTurn = data.gameState.currentTurn;
 
-                    // On renvoie l'information aux deux joueurs avec les détails du log
                     room.players.forEach((player) => {
                         if (player.readyState === WebSocket.OPEN) {
                             player.send(JSON.stringify({
                                 type: 'update_game',
                                 gameState: room.gameState,
-                                logInfo: data.logInfo // Contient le texte du coup ("Joueur Sud : Termine en...")
+                                logInfo: data.logInfo
                             }));
                         }
                     });
