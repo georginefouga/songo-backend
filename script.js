@@ -25,7 +25,7 @@ const btnConnect = document.getElementById('btn-connect');
 connectToServer();
 
 function connectToServer() {
-    socket = new WebSocket(https://songo-server.onrender.com);
+    socket = new WebSocket(SERVER_URL);
 
     socket.onopen = () => {
         statusMessage.textContent = "Connecté au Cloud ! Entrez un nom de salon.";
