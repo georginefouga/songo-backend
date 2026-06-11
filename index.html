@@ -3,70 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Songo Master - Réseau</title>
+    <title>Songo Master - Graines Réseau</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <!-- ÉCRAN D'ACCUEIL : SÉLECTION DES SALONS EN RÉSEAU -->
     <div id="lobby-container">
         <div class="lobby-box">
             <h2>Songo Réseau 237</h2>
             <p id="status-message">Connexion au serveur Cloud en cours...</p>
             
             <div class="input-group">
-                <input type="text" id="room-code" placeholder="Nom du salon (ex: Mboa237)..." disabled>
+                <input type="text" id="room-code" placeholder="Nom du salon..." disabled>
             </div>
 
             <div class="actions">
-                <button id="btn-create" disabled>Créer un salon</button>
+                <button id="btn-create" disabled>Créer salon</button>
                 <button id="btn-connect" disabled>Rejoindre</button>
             </div>
         </div>
     </div>
 
-    <!-- ZONE DE JEU PRINCIPALE (IDENTIQUE À TA VERSION LOCALE) -->
     <div id="game-container">
         <header>
             <h1>SONGO NETWORK</h1>
-            <div id="role-badge">En attente de salon...</div>
+            <div id="role-badge">En attente...</div>
             <div id="turn-indicator">Tour : --</div>
         </header>
 
         <main class="board-wrapper">
-            <!-- Les scores des deux vrais joueurs -->
             <div class="score-board">
                 <div class="score">Nord (Adversaire) : <span id="score-nord">0</span></div>
                 <div class="score">Sud (Moi) : <span id="score-sud">0</span></div>
             </div>
 
-            <!-- Le plateau traditionnel (14 fosses) -->
             <div class="songo-board">
-                <!-- Rangée Nord (Joueur Nord : cases 0 à 6) -->
                 <div class="row row-nord">
-                    <div class="pit" data-index="0">5</div>
-                    <div class="pit" data-index="1">5</div>
-                    <div class="pit" data-index="2">5</div>
-                    <div class="pit" data-index="3">5</div>
-                    <div class="pit" data-index="4">5</div>
-                    <div class="pit" data-index="5">5</div>
-                    <div class="pit" data-index="6">5</div>
+                    <div class="pit" data-index="7"></div>
+                    <div class="pit" data-index="8"></div>
+                    <div class="pit" data-index="9"></div>
+                    <div class="pit" data-index="10"></div>
+                    <div class="pit" data-index="11"></div>
+                    <div class="pit" data-index="12"></div>
+                    <div class="pit" data-index="13"></div>
                 </div>
-                <!-- Rangée Sud (Joueur Sud : cases 7 à 13) -->
                 <div class="row row-sud">
-                    <div class="pit" data-index="13">5</div>
-                    <div class="pit" data-index="12">5</div>
-                    <div class="pit" data-index="11">5</div>
-                    <div class="pit" data-index="10">5</div>
-                    <div class="pit" data-index="9">5</div>
-                    <div class="pit" data-index="8">5</div>
-                    <div class="pit" data-index="7">5</div>
+                    <div class="pit" data-index="6"></div>
+                    <div class="pit" data-index="5"></div>
+                    <div class="pit" data-index="4"></div>
+                    <div class="pit" data-index="3"></div>
+                    <div class="pit" data-index="2"></div>
+                    <div class="pit" data-index="1"></div>
+                    <div class="pit" data-index="0"></div>
                 </div>
             </div>
         </main>
 
         <footer>
-            <div id="move-log">Créez ou rejoignez un salon pour commencer à jouer.</div>
+            <div id="move-log">Connectez-vous pour commencer.</div>
         </footer>
     </div>
 
