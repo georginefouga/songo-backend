@@ -1,8 +1,13 @@
 let socket = null;
-let myRole = null; 
+let myRole = null; // 'sud' ou 'nord'
 let serverGameState = { board: Array(14).fill(5), scoreSud: 0, scoreNord: 0, currentTurn: 'sud' };
 let isAnimating = false;
+let gameActive = false; // Bloque le jeu tant qu'on est pas deux
 
+// LIAISON AVEC L'ADRESSE RENDER DU SERVEUR
+const SERVER_URL = 'wss://songo-server.onrender.com';
+
+// RÉCUPÉRATION DES ÉLÉMENTS DE L'INTERFACE
 const pits = document.querySelectorAll('.pit');
 const turnIndicator = document.getElementById('turn-indicator');
 const scoreSudEl = document.getElementById('score-sud');
@@ -10,48 +15,65 @@ const scoreNordEl = document.getElementById('score-nord');
 const statusMessage = document.getElementById('status-message');
 const moveLog = document.getElementById('move-log');
 const roleBadge = document.getElementById('role-badge');
-const btnConnect = document.getElementById('btn-connect');
+
+const lobbyContainer = document.getElementById('lobby-container');
 const roomCodeInput = document.getElementById('room-code');
+const btnCreate = document.getElementById('btn-create');
+const btnConnect = document.getElementById('btn-connect');
 
-btnConnect.addEventListener('click', () => {
-    const roomCode = roomCodeInput.value.trim();
-    if (!roomCode) return alert("Veuillez entrer un nom de salon.");
+// INITIALISATION DE LA CONNEXION CLOUD DIRECTE
+connectToServer();
 
-    // METS TON URL DE RENDER ICI (conserve bien le wss:// au début !)
-    socket = new WebSocket('wss://songo-server.onrender.com');
+function connectToServer() {
+    socket = new WebSocket(SERVER_URL);
 
     socket.onopen = () => {
-        logSystem(`Connexion au Cloud... Rejoindre le salon [${roomCode}]`);
-        socket.send(JSON.stringify({ type: 'join_room', roomCode: roomCode }));
+        statusMessage.textContent = "Connecté au Cloud ! Entrez un nom de salon.";
+        statusMessage.style.color = "#28a745";
+        roomCodeInput.disabled = false;
+        btnCreate.disabled = false;
+        btnConnect.disabled = false;
     };
 
     socket.onmessage = (event) => {
         const msg = JSON.parse(event.data);
 
         switch (msg.type) {
-            case 'room_joined':
+            case 'room_created':
                 myRole = msg.role;
                 serverGameState = msg.gameState;
+                lobbyContainer.style.display = 'none'; // Ferme l'accueil
                 roleBadge.textContent = `Mon Rôle : JOUEUR ${myRole.toUpperCase()}`;
-                roleBadge.style.background = myRole === 'sud' ? '#2e7d32' : '#c62828';
-                statusMessage.textContent = "En attente de votre adversaire...";
-                updateVisualBoardOnly();
-                break;
-
-            case 'game_start':
-                serverGameState = msg.gameState;
-                statusMessage.textContent = "Adversaire connecté. Que le meilleur gagne !";
+                moveLog.textContent = `Salon "${roomCodeInput.value.trim()}" créé. En attente de l'adversaire...`;
                 updateUI();
                 break;
 
-            case 'move_executed':
-                executeMoveAnimated(msg.startIndex, msg.player, msg.gameState);
+            case 'room_joined':
+                myRole = msg.role;
+                serverGameState = msg.gameState;
+                gameActive = true; // Deuxième joueur connecté, le jeu s'active
+                lobbyContainer.style.display = 'none'; // Ferme l'accueil
+                roleBadge.textContent = `Mon Rôle : JOUEUR ${myRole.toUpperCase()}`;
+                moveLog.textContent = "Vous avez rejoint la partie. C'est au Joueur Sud de commencer !";
+                updateUI();
                 break;
 
-            case 'opponent_disconnected':
-                statusMessage.textContent = "L'adversaire a quitté. Partie interrompue.";
-                logSystem("Système : Déconnexion de l'autre joueur.");
-                myRole = null;
+            case 'opponent_joined':
+                gameActive = true; // L'adversaire est arrivé, on débloque
+                moveLog.textContent = "Votre adversaire est connecté ! À vous de jouer (Sud).";
+                alert("Un adversaire a rejoint la partie !");
+                updateUI();
+                break;
+
+            case 'update_game':
+                serverGameState = msg.gameState;
+                updateUI();
+                break;
+
+            case 'opponent_left':
+                gameActive = false;
+                moveLog.textContent = msg.message;
+                alert(msg.message);
                 break;
 
             case 'error':
@@ -61,123 +83,97 @@ btnConnect.addEventListener('click', () => {
     };
 
     socket.onclose = () => {
-        logSystem("Serveur déconnecté.");
-        statusMessage.textContent = "Connexion réseau perdue.";
+        statusMessage.textContent = "Connexion perdue avec le serveur. Reconnexion...";
+        statusMessage.style.color = "#dc3545";
+        roomCodeInput.disabled = true;
+        btnCreate.disabled = true;
+        btnConnect.disabled = true;
+        setTimeout(connectToServer, 3000); // Tente de se reconnecter après 3 secondes
     };
-});
-
-function updateVisualBoardOnly() {
-    pits.forEach(pit => {
-        const index = parseInt(pit.getAttribute('data-index'));
-        const seedCount = serverGameState.board[index];
-        pit.querySelectorAll('.seed').forEach(s => s.remove());
-
-        for (let i = 0; i < seedCount; i++) {
-            const seedDiv = document.createElement('div');
-            seedDiv.className = 'seed';
-            const angle = (i * (360 / Math.max(seedCount, 6))) * (Math.PI / 180);
-            const radius = Math.min(i * 2.2 + 11, 25);
-            seedDiv.style.left = `${Math.round(35 + Math.cos(angle) * radius)}px`;
-            seedDiv.style.top = `${Math.round(30 + Math.sin(angle) * radius)}px`;
-            seedDiv.style.transform = `rotate(${(i * 45) % 360}deg)`;
-            pit.appendChild(seedDiv);
-        }
-    });
 }
 
+// BOUTON : CRÉER UN SALON
+btnCreate.addEventListener('click', () => {
+    const roomCode = roomCodeInput.value.trim();
+    if (!roomCode) return alert("Veuillez donner un nom au salon à créer.");
+    socket.send(JSON.stringify({ type: 'create_room', roomCode: roomCode }));
+});
+
+// BOUTON : REJOINDRE UN SALON
+btnConnect.addEventListener('click', () => {
+    const roomCode = roomCodeInput.value.trim();
+    if (!roomCode) return alert("Veuillez inscrire le nom du salon à rejoindre.");
+    socket.send(JSON.stringify({ type: 'join_room', roomCode: roomCode }));
+});
+
+// CLIC SUR LES CASES DU PLATEAU
+pits.forEach(pit => {
+    pit.addEventListener('click', (e) => {
+        if (!gameActive || isAnimating) return;
+
+        const clickedIndex = parseInt(e.target.getAttribute('data-index'));
+
+        // Vérification du tour
+        if (serverGameState.currentTurn !== myRole) {
+            return alert("Ce n'est pas votre tour de jouer !");
+        }
+
+        // Vérification des zones d'autorisation (Sud = cases 7-13, Nord = cases 0-6)
+        if (myRole === 'sud' && (clickedIndex < 7 || clickedIndex > 13)) return alert("Vous devez jouer dans votre rangée (Sud) !");
+        if (myRole === 'nord' && (clickedIndex < 0 || clickedIndex > 6)) return alert("Vous devez jouer dans votre rangée (Nord) !");
+
+        if (serverGameState.board[clickedIndex] === 0) return alert("Cette case est vide !");
+
+        // Execution locale de la distribution des graines (simulation simplifiée pour l'exemple)
+        executeMove(clickedIndex);
+    });
+});
+
+// FONCTION EXÉCUTION DU COUP ET ENVOI AU CLOUD
+function executeMove(index) {
+    let seeds = serverGameState.board[index];
+    serverGameState.board[index] = 0;
+    let currentIdx = index;
+
+    // Distribution simple dans le sens anti-horaire
+    while (seeds > 0) {
+        currentIdx = (currentIdx + 1) % 14;
+        serverGameState.board[currentIdx]++;
+        seeds--;
+    }
+
+    // Changement de tour alternatif
+    serverGameState.currentTurn = (myRole === 'sud') ? 'nord' : 'sud';
+    moveLog.textContent = `Dernier coup : Joueur ${myRole.toUpperCase()} a distribué depuis la case ${index}.`;
+
+    // Envoi immédiat du nouvel état au serveur Render pour synchronisation
+    socket.send(JSON.stringify({
+        type: 'make_move',
+        gameState: serverGameState
+    }));
+}
+
+// METTRE À JOUR L'AFFICHAGE DU PLATEAU ET DES SCORES
 function updateUI() {
-    updateVisualBoardOnly();
+    // Synchronisation graphique des fosses
+    pits.forEach(pit => {
+        const idx = parseInt(pit.getAttribute('data-index'));
+        pit.textContent = serverGameState.board[idx];
+    });
+
+    // Synchronisation des scores globaux
     scoreSudEl.textContent = serverGameState.scoreSud;
     scoreNordEl.textContent = serverGameState.scoreNord;
 
-    if (serverGameState.currentTurn === myRole) {
-        turnIndicator.textContent = "C'EST À TOI DE JOUER !";
-        turnIndicator.style.background = "#d4af37";
-        turnIndicator.style.color = "#000";
+    // Indicateur visuel du tour
+    if (!gameActive) {
+        turnIndicator.textContent = "En attente du 2ème joueur...";
+        turnIndicator.style.color = "#ffc107";
+    } else if (serverGameState.currentTurn === myRole) {
+        turnIndicator.textContent = "À vous de jouer !";
+        turnIndicator.style.color = "#28a745";
     } else {
-        turnIndicator.textContent = `Tour : Joueur ${serverGameState.currentTurn.toUpperCase()}`;
-        turnIndicator.style.background = "#333";
-        turnIndicator.style.color = "#fff";
+        turnIndicator.textContent = "Tour de l'adversaire...";
+        turnIndicator.style.color = "#ffffff";
     }
 }
-
-pits.forEach(pit => {
-    pit.addEventListener('click', (e) => {
-        if (isAnimating || !socket || !myRole) return;
-        if (serverGameState.currentTurn !== myRole) {
-            statusMessage.textContent = "Patientez, ce n'est pas votre tour.";
-            return;
-        }
-
-        const index = parseInt(e.currentTarget.getAttribute('data-index'));
-        if (myRole === 'sud' && (index < 0 || index > 6)) return;
-        if (myRole === 'nord' && (index < 7 || index > 13)) return;
-
-        if (serverGameState.board[index] === 0) return;
-
-        socket.send(JSON.stringify({ type: 'play_move', index: index }));
-    });
-});
-
-function executeMoveAnimated(startIndex, movingPlayer, finalStateFromServer) {
-    isAnimating = true;
-    let seedsInHand = serverGameState.board[startIndex];
-    serverGameState.board[startIndex] = 0;
-    updateVisualBoardOnly();
-
-    let currentIndex = startIndex;
-    statusMessage.textContent = `Semis du Joueur ${movingPlayer.toUpperCase()}...`;
-
-    const distributionInterval = setInterval(() => {
-        if (seedsInHand > 0) {
-            currentIndex = (currentIndex + 1) % 14;
-            if (currentIndex === startIndex) return; 
-
-            serverGameState.board[currentIndex]++;
-            seedsInHand--;
-
-            const activePit = document.querySelector(`.pit[data-index='${currentIndex}']`);
-            activePit.classList.add('active-semis');
-            setTimeout(() => activePit.classList.remove('active-semis'), 200);
-
-            updateVisualBoardOnly();
-        } else {
-            clearInterval(distributionInterval);
-            
-            serverGameState = finalStateFromServer;
-            logMove(movingPlayer, currentIndex);
-            
-            isAnimating = false;
-            updateUI();
-        }
-    }, 350); 
-}
-
-function logMove(player, finalIndex) {
-    const caseLabel = (finalIndex < 7) ? `S${finalIndex + 1}` : `N${finalIndex - 6}`;
-    const entry = document.createElement('div');
-    entry.className = `log-entry ${player}-move`;
-    entry.textContent = `[Action] Joueur ${player.toUpperCase()} sème jusqu'en ${caseLabel}`;
-    moveLog.appendChild(entry);
-    moveLog.scrollTop = moveLog.scrollHeight;
-}
-
-function logSystem(text) {
-    const entry = document.createElement('div');
-    entry.className = "log-entry system-log";
-    entry.textContent = text;
-    moveLog.appendChild(entry);
-}
-
-document.getElementById('btn-restart').addEventListener('click', () => {
-    if(socket) socket.close();
-    roleBadge.textContent = "Mode Spectateur";
-    roleBadge.style.background = "#333";
-    turnIndicator.textContent = "En attente de connexion...";
-    statusMessage.textContent = "Veuillez vous connecter à un salon réseau pour jouer.";
-    moveLog.innerHTML = '<div class="log-entry system-log">Hors ligne.</div>';
-    serverGameState.board = Array(14).fill(5);
-    serverGameState.scoreSud = 0;
-    serverGameState.scoreNord = 0;
-    updateVisualBoardOnly();
-});

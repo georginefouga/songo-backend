@@ -2,80 +2,72 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Songo Ékang Multijoueur</title>
+    <meta name="viewport" content="width=device-width, initial-scale=device-width, initial-scale=1.0">
+    <title>Songo Master - Réseau</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
 
-    <div class="main-layout">
-        <div class="sidebar left-sidebar">
-            <h2><i class="fa-solid fa-network-wired"></i> Connexion Réseau</h2>
+    <!-- ÉCRAN D'ACCUEIL : SÉLECTION DES SALONS -->
+    <div id="lobby-container">
+        <div class="lobby-box">
+            <h2>Songo Réseau 237</h2>
+            <p id="status-message">Connexion au serveur Cloud en cours...</p>
             
-            <div class="control-group">
-                <label for="room-code">Code du Salon (Ex: CM2026) :</label>
-                <input type="text" id="room-code" placeholder="Entrez un code..." value="SONGO-1">
-                <button id="btn-connect" class="btn pro-btn" style="margin-top: 8px;"><i class="fa-solid fa-plug"></i> Rejoindre / Créer</button>
+            <div class="input-group">
+                <input type="text" id="room-code" placeholder="Nom du salon (ex: Mboa237)..." disabled>
             </div>
 
-            <div class="control-group">
-                <span id="role-badge" style="text-align: center; font-weight: bold; padding: 5px; border-radius: 4px; background: #333;">Mode Spectateur</span>
+            <div class="actions">
+                <button id="btn-create" disabled>Créer un salon</button>
+                <button id="btn-connect" disabled>Rejoindre</button>
             </div>
-            
-            <hr style="border: 1px solid #333; width: 100%;">
-
-            <button id="btn-restart" class="btn secondary-btn"><i class="fa-solid fa-arrows-rotate"></i> Réinitialiser</button>
         </div>
+    </div>
 
-        <div class="game-center">
-            <h1>Songo Ékang <span style="font-size: 0.9rem; color: #d4af37;">(Mode Distant)</span></h1>
-            
+    <!-- ZONE DE JEU (MASQUÉE DE BASE PAR LE CSS JUSQU'À LA CONNEXION) -->
+    <div id="game-container">
+        <header>
+            <h1>SONGO NETWORK</h1>
+            <div id="role-badge">En attente de salon...</div>
+            <div id="turn-indicator">Tour : --</div>
+        </header>
+
+        <main class="board-wrapper">
+            <!-- Les scores -->
             <div class="score-board">
-                <div class="player-score">
-                    <span class="player-name">JOUEUR NORD</span>
-                    <span class="score-val" id="score-nord">0</span>
-                </div>
-                <div id="turn-indicator">En attente de connexion...</div>
-                <div class="player-score">
-                    <span class="player-name">JOUEUR SUD (Toi)</span>
-                    <span class="score-val" id="score-sud">0</span>
-                </div>
+                <div class="score">Nord (Adversaire) : <span id="score-nord">0</span></div>
+                <div class="score">Sud (Moi) : <span id="score-sud">0</span></div>
             </div>
 
-            <div class="board-wrapper">
-                <div class="songo-board">
-                    <div class="board-row nord-row">
-                        <div class="pit" data-index="13"><span class="pit-name">N7</span></div>
-                        <div class="pit" data-index="12"><span class="pit-name">N6</span></div>
-                        <div class="pit" data-index="11"><span class="pit-name">N5</span></div>
-                        <div class="pit" data-index="10"><span class="pit-name">N4</span></div>
-                        <div class="pit" data-index="9"><span class="pit-name">N3</span></div>
-                        <div class="pit" data-index="8"><span class="pit-name">N2</span></div>
-                        <div class="pit" data-index="7"><span class="pit-name">N1</span></div>
-                    </div>
-
-                    <div class="board-row sud-row">
-                        <div class="pit" data-index="0"><span class="pit-name">S1</span></div>
-                        <div class="pit" data-index="1"><span class="pit-name">S2</span></div>
-                        <div class="pit" data-index="2"><span class="pit-name">S3</span></div>
-                        <div class="pit" data-index="3"><span class="pit-name">S4</span></div>
-                        <div class="pit" data-index="4"><span class="pit-name">S5</span></div>
-                        <div class="pit" data-index="5"><span class="pit-name">S6</span></div>
-                        <div class="pit" data-index="6"><span class="pit-name">S7</span></div>
-                    </div>
+            <!-- Le plateau de Songo (14 fosses) -->
+            <div class="songo-board">
+                <!-- Rangée Nord (Joueur Nord : cases 0 à 6) -->
+                <div class="row row-nord">
+                    <div class="pit" data-index="0">5</div>
+                    <div class="pit" data-index="1">5</div>
+                    <div class="pit" data-index="2">5</div>
+                    <div class="pit" data-index="3">5</div>
+                    <div class="pit" data-index="4">5</div>
+                    <div class="pit" data-index="5">5</div>
+                    <div class="pit" data-index="6">5</div>
+                </div>
+                <!-- Rangée Sud (Joueur Sud : cases 7 à 13) -->
+                <div class="row row-sud">
+                    <div class="pit" data-index="13">5</div>
+                    <div class="pit" data-index="12">5</div>
+                    <div class="pit" data-index="11">5</div>
+                    <div class="pit" data-index="10">5</div>
+                    <div class="pit" data-index="9">5</div>
+                    <div class="pit" data-index="8">5</div>
+                    <div class="pit" data-index="7">5</div>
                 </div>
             </div>
+        </main>
 
-            <div id="status-message">Veuillez vous connecter à un salon réseau pour jouer.</div>
-        </div>
-
-        <div class="sidebar right-sidebar">
-            <h2><i class="fa-solid fa-clock-rotate-left"></i> Flux Réseau</h2>
-            <div id="move-log" class="log-container">
-                <div class="log-entry system-log">Hors ligne.</div>
-            </div>
-        </div>
+        <footer>
+            <div id="move-log">Créez ou rejoignez un salon pour commencer à jouer.</div>
+        </footer>
     </div>
 
     <script src="script.js"></script>
