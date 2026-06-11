@@ -18,7 +18,7 @@ btnConnect.addEventListener('click', () => {
     if (!roomCode) return alert("Veuillez entrer un nom de salon.");
 
     // METS TON URL DE RENDER ICI (conserve bien le wss:// au début !)
-    socket = new WebSocket('wss://L_URL_DE_TON_SERVEUR_RENDER.onrender.com');
+    socket = new WebSocket('wss://songo-server.onrender.com');
 
     socket.onopen = () => {
         logSystem(`Connexion au Cloud... Rejoindre le salon [${roomCode}]`);
