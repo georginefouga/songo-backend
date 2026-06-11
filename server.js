@@ -1,128 +1,123 @@
-const { WebSocketServer } = require('ws');
+const WebSocket = require('ws');
 
-// CRITIQUE POUR LE CLOUD : Render attribue un port aléatoire via process.env.PORT
-const PORT = process.env.PORT || 8080;
-const wss = new WebSocketServer({ port: PORT });
+// Choix automatique du port (celui fourni par Render, ou 3000 en local)
+const PORT = process.env.PORT || 3000;
+const wss = new WebSocket.Server({ port: PORT });
 
-console.log(`Le serveur Songo Réseau Ékang est en ligne sur le port ${PORT}...`);
+// Stockage dynamique des salons : { 'nom_du_salon': { players: [ws1, ws2], gameState: {...} } }
+const rooms = {};
 
-const games = {};
+console.log(`Serveur Songo en écoute sur le port ${PORT}`);
 
 wss.on('connection', (ws) => {
-    let currentRoom = null;
-    let playerRole = null;
+    console.log('Un joueur s\'est connecté au serveur.');
 
     ws.on('message', (message) => {
         try {
             const data = JSON.parse(message);
 
-            switch (data.type) {
-                case 'join_room':
-                    const room = data.roomCode;
-                    currentRoom = room;
-
-                    if (!games[room]) {
-                        games[room] = {
-                            board: Array(14).fill(5),
+            // ACTION : CRÉER UN SALON
+            if (data.type === 'create_room') {
+                const roomCode = data.roomCode;
+                
+                if (rooms[roomCode]) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Ce salon existe déjà ! Utilisez un autre nom ou rejoignez-le.' }));
+                } else {
+                    // Initialisation du salon avec le créateur (Joueur Sud)
+                    rooms[roomCode] = {
+                        players: [ws],
+                        gameState: {
+                            board: Array(14).fill(5), // 14 cases avec 5 graines chacune
                             scoreSud: 0,
                             scoreNord: 0,
-                            currentTurn: 'sud',
-                            players: [ws]
-                        };
-                        playerRole = 'sud';
-                        ws.send(JSON.stringify({ type: 'room_joined', role: 'sud', gameState: games[room] }));
-                        console.log(`Salon [${room}] créé par le Joueur SUD`);
-                    } else if (games[room].players.length === 1) {
-                        games[room].players.push(ws);
-                        playerRole = 'nord';
-                        ws.send(JSON.stringify({ type: 'room_joined', role: 'nord', gameState: games[room] }));
-                        
-                        broadcastToRoom(room, { type: 'game_start', gameState: games[room] });
-                        console.log(`Joueur NORD connecté au salon [${room}]. Duel lancé !`);
-                    } else {
-                        ws.send(JSON.stringify({ type: 'error', message: 'Ce salon est déjà complet.' }));
-                    }
-                    break;
-
-                case 'play_move':
-                    if (!currentRoom || !games[currentRoom]) return;
-                    const game = games[currentRoom];
-
-                    if (game.currentTurn !== playerRole) return;
-
-                    const startIndex = data.index;
-                    if (game.board[startIndex] === 0) return;
-
-                    // Logique d'égrainage du Songo
-                    let seeds = game.board[startIndex];
-                    game.board[startIndex] = 0;
-                    let currentIndex = startIndex;
-
-                    while (seeds > 0) {
-                        currentIndex = (currentIndex + 1) % 14;
-                        if (currentIndex === startIndex) continue; // Saut du Grand Tour
-                        game.board[currentIndex]++;
-                        seeds--;
-                    }
-
-                    // Logique des captures (2, 3, 4 graines)
-                    let capturedSeedsTotal = 0;
-                    let checkIdx = currentIndex;
-
-                    while (
-                        (playerRole === 'sud' && checkIdx >= 7 && checkIdx <= 13) || 
-                        (playerRole === 'nord' && checkIdx >= 0 && checkIdx <= 6)
-                    ) {
-                        let seedsInPit = game.board[checkIdx];
-                        if (seedsInPit === 2 || seedsInPit === 3 || seedsInPit === 4) {
-                            capturedSeedsTotal += seedsInPit;
-                            game.board[checkIdx] = 0;
-                            checkIdx = (checkIdx - 1 + 14) % 14;
-                        } else {
-                            break; 
+                            currentTurn: 'sud' // Le créateur commence
                         }
-                    }
+                    };
+                    ws.roomCode = roomCode;
+                    ws.role = 'sud';
 
-                    if (playerRole === 'sud') {
-                        game.scoreSud += capturedSeedsTotal;
-                    } else {
-                        game.scoreNord += capturedSeedsTotal;
-                    }
-
-                    game.currentTurn = (playerRole === 'sud') ? 'nord' : 'sud';
-
-                    broadcastToRoom(currentRoom, {
-                        type: 'move_executed',
-                        startIndex: startIndex,
-                        player: playerRole,
-                        gameState: game
-                    });
-                    break;
+                    ws.send(JSON.stringify({ 
+                        type: 'room_created', 
+                        roomCode: roomCode, 
+                        role: ws.role,
+                        gameState: rooms[roomCode].gameState
+                    }));
+                    console.log(`Salon créé : ${roomCode} par le Joueur Sud`);
+                }
             }
-        } catch (e) {
-            console.error("Erreur décodage message:", e);
+
+            // ACTION : REJOINDRE UN SALON
+            if (data.type === 'join_room') {
+                const roomCode = data.roomCode;
+                const room = rooms[roomCode];
+
+                if (!room) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Salon introuvable. Vérifiez le nom ou créez-le.' }));
+                } else if (room.players.length >= 2) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Ce salon est déjà complet (2 joueurs maximum).' }));
+                } else {
+                    // Intégration du second joueur (Joueur Nord)
+                    room.players.push(ws);
+                    ws.roomCode = roomCode;
+                    ws.role = 'nord';
+
+                    ws.send(JSON.stringify({ 
+                        type: 'room_joined', 
+                        roomCode: roomCode, 
+                        role: ws.role, 
+                        gameState: room.gameState 
+                    }));
+
+                    // Alerter le créateur (Sud) que l'adversaire est arrivé
+                    room.players[0].send(JSON.stringify({ type: 'opponent_joined' }));
+                    console.log(`Joueur Nord a rejoint le salon : ${roomCode}. Le jeu peut commencer !`);
+                }
+            }
+
+            // ACTION : JOUER UN COUP (TRANSMISSION & SYNCHRONISATION)
+            if (data.type === 'make_move') {
+                const roomCode = ws.roomCode;
+                const room = rooms[roomCode];
+
+                if (room) {
+                    // On met à jour l'état du jeu global sur le serveur
+                    room.gameState = data.gameState;
+
+                    // On diffuse le nouvel état à TOUS les joueurs du salon
+                    room.players.forEach((player) => {
+                        if (player.readyState === WebSocket.OPEN) {
+                            player.send(JSON.stringify({
+                                type: 'update_game',
+                                gameState: room.gameState
+                            }));
+                        }
+                    });
+                }
+            }
+
+        } catch (error) {
+            console.error('Erreur lors du traitement du message :', error);
         }
     });
 
+    // GESTION DES DÉCONNEXIONS
     ws.on('close', () => {
-        if (currentRoom && games[currentRoom]) {
-            games[currentRoom].players = games[currentRoom].players.filter(p => p !== ws);
-            if (games[currentRoom].players.length === 0) {
-                delete games[currentRoom];
-                console.log(`Salon [${currentRoom}] fermé.`);
+        const roomCode = ws.roomCode;
+        if (roomCode && rooms[roomCode]) {
+            const room = rooms[roomCode];
+            
+            // Retirer le joueur déconnecté de la liste
+            room.players = room.players.filter(p => p !== ws);
+            console.log(`Un joueur a quitté le salon : ${roomCode}`);
+
+            // Si le salon est vide, on le supprime de la mémoire
+            if (room.players.length === 0) {
+                delete rooms[roomCode];
+                console.log(`Salon ${roomCode} supprimé car vide.`);
             } else {
-                broadcastToRoom(currentRoom, { type: 'opponent_disconnected' });
+                // S'il reste un joueur, on l'informe du départ de son adversaire
+                room.players[0].send(JSON.stringify({ type: 'opponent_left', message: 'Votre adversaire a quitté la partie.' }));
             }
         }
     });
 });
-
-function broadcastToRoom(roomCode, messageData) {
-    if (games[roomCode]) {
-        games[roomCode].players.forEach(client => {
-            if (client.readyState === 1) {
-                client.send(JSON.stringify(messageData));
-            }
-        });
-    }
-}
